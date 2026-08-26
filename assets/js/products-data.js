@@ -95,7 +95,7 @@ const PRODUCTS = [
     "cat": "faucets",
     "catLabel": "Faucets",
     "sub": "Basin Faucets",
-    "price": null,
+    "price": 999,
     "img": "assets/images/products/abs.jpg",
     "badge": "",
     "desc": ""
