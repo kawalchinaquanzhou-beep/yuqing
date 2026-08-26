@@ -99,6 +99,17 @@ const PRODUCTS = [
     "img": "assets/images/products/abs.jpg",
     "badge": "",
     "desc": ""
+  },
+  {
+    "slug": "abs-black",
+    "name": "ABS（BLACK）",
+    "cat": "faucets",
+    "catLabel": "Faucets",
+    "sub": "Basin Faucets",
+    "price": 999,
+    "img": "assets/images/products/abs-black.jpg",
+    "badge": "123",
+    "desc": "asdzxc"
   }
 ];
 /* ---------- PRODUCT-DATA-END ---------- */
