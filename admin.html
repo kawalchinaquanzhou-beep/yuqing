@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YUQING 产品管理后台</title>
+<style>
+  :root { --teal:#1d5c63; --gold:#c9a227; --ink:#14232b; --soft:#5a6b76; --bg:#f5f3ef; --line:#e2ddd4; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; }
+  .wrap { max-width:1080px; margin:0 auto; padding:2rem 1.2rem 4rem; }
+  h1 { font-size:1.6rem; margin-bottom:.3rem; }
+  .sub { color:var(--soft); font-size:.9rem; margin-bottom:1.6rem; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:1.4rem 1.5rem; margin-bottom:1.4rem; box-shadow:0 4px 16px rgba(20,35,43,.06); }
+  .card h2 { font-size:1.05rem; margin-bottom:1rem; color:var(--teal); }
+  label { display:block; font-size:.82rem; font-weight:600; color:var(--soft); margin:.7rem 0 .3rem; }
+  input,select,textarea { width:100%; padding:.6rem .8rem; border:1.5px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+  input:focus,select:focus,textarea:focus { outline:none; border-color:var(--teal); }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:0 1.2rem; }
+  .row3 { display:grid; grid-template-columns:2fr 1fr 1fr; gap:0 1.2rem; }
+  @media(max-width:720px){ .row,.row3{grid-template-columns:1fr;} }
+  button { cursor:pointer; border:none; border-radius:8px; padding:.65rem 1.4rem; font:inherit; font-weight:600; }
+  .btn-main { background:var(--teal); color:#fff; }
+  .btn-main:hover { background:#123f45; }
+  .btn-gold { background:var(--gold); color:#fff; }
+  .btn-ghost { background:#fff; border:1.5px solid var(--line); color:var(--ink); }
+  .btn-danger { background:#fff; border:1.5px solid #e5b9b9; color:#a33; }
+  table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  th,td { text-align:left; padding:.55rem .6rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--soft); font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; }
+  td img { width:52px; height:52px; object-fit:cover; border-radius:6px; }
+  .ops button { padding:.3rem .8rem; font-size:.8rem; margin-right:.4rem; }
+  #log { background:#10262b; color:#bfe3da; border-radius:8px; padding:.8rem 1rem; font-family:Consolas,monospace; font-size:.82rem; max-height:220px; overflow:auto; white-space:pre-wrap; display:none; }
+  .hint { font-size:.8rem; color:var(--soft); margin-top:.6rem; }
+  .pill { display:inline-block; background:rgba(201,162,39,.15); color:#8a6d10; border-radius:999px; padding:.1rem .7rem; font-size:.75rem; font-weight:700; }
+  .preview { display:flex; gap:1rem; align-items:center; margin-top:.8rem; }
+  .preview img { width:84px; height:84px; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
+  .muted { color:var(--soft); font-size:.85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>YUQING 产品管理后台</h1>
+  <p class="sub">在这里增删改产品 → 点「保存并发布」→ 自动提交到 GitHub → Cloudflare 约 1 分钟后自动上线。全程不用碰代码。</p>
+
+  <div class="card">
+    <h2>① GitHub 连接（首次填写，自动记住）</h2>
+    <div class="row3">
+      <div>
+        <label>仓库（格式：用户名/仓库名）</label>
+        <input id="cfg-repo" placeholder="例如 zhangsan/yuqing-site">
+      </div>
+      <div>
+        <label>分支</label>
+        <input id="cfg-branch" value="main">
+      </div>
+      <div>
+        <label>Personal Access Token</label>
+        <input id="cfg-token" type="password" placeholder="github_pat_... 或 ghp_...">
+      </div>
+    </div>
+    <p class="hint">Token 创建方法：GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token → 仓库选你的站点仓库 → Permissions 里 Contents 设为 Read and write → 生成后粘贴到这里。Token 只保存在你自己浏览器的本地存储里。</p>
+    <p style="margin-top:1rem"><button class="btn-main" onclick="loadFromGitHub()">从网站加载当前产品</button>
+    <button class="btn-ghost" onclick="saveCfg()">记住连接信息</button></p>
+  </div>
+
+  <div class="card">
+    <h2>② 当前产品列表 <span class="pill" id="count"></span></h2>
+    <table>
+      <thead><tr><th>图</th><th>名称</th><th>一级分类</th><th>二级分类</th><th>价格</th><th>操作</th></tr></thead>
+      <tbody id="list"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 id="form-title">③ 添加产品</h2>
+    <input type="hidden" id="f-slug">
+    <div class="row">
+      <div><label>产品英文名称 *</label><input id="f-name" placeholder="例如 Oslo 60&quot; Floating Vanity"></div>
+      <div><label>参考价（美元，可留空）</label><input id="f-price" type="number" placeholder="899"></div>
+    </div>
+    <div class="row">
+      <div><label>一级分类 *</label><select id="f-cat"></select></div>
+      <div><label>二级分类 *</label><select id="f-sub"></select></div>
+    </div>
+    <div class="row">
+      <div><label>标签（可选，如 New / Featured）</label><input id="f-badge"></div>
+      <div><label>产品图片（可选，不选则沿用旧图）</label><input id="f-img" type="file" accept="image/*"></div>
+    </div>
+    <label>英文简介（一两句话）</label>
+    <textarea id="f-desc" rows="2"></textarea>
+    <div class="preview" id="preview" style="display:none"><img id="preview-img" alt=""><span class="muted" id="preview-name"></span></div>
+    <p style="margin-top:1rem">
+      <button class="btn-gold" onclick="saveProduct()">保存到列表</button>
+      <button class="btn-ghost" onclick="resetForm()">清空表单</button>
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>④ 发布上线</h2>
+    <p class="muted">「保存并发布」会把修改后的产品数据（以及新上传的图片）一次性提交到 GitHub，Cloudflare Pages 检测到提交后约 1 分钟自动重新部署，你的域名随即更新。提交前可以随时在列表里继续编辑。</p>
+    <p style="margin-top:1rem"><button class="btn-main" onclick="publish()">保存并发布 🚀</button></p>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const API = "https://api.github.com";
+let TREE = {}, PRODUCTS = [], RAW = "", BASE_SHA = "", dirty = false;
+let pendingImages = {}; // path -> base64
+
+const $ = id => document.getElementById(id);
+const cfg = () => ({ repo: $("cfg-repo").value.trim(), branch: $("cfg-branch").value.trim() || "main", token: $("cfg-token").value.trim() });
+
+function saveCfg(){ localStorage.setItem("yq-admin", JSON.stringify({repo:cfg().repo, branch:cfg().branch, token:cfg().token})); log("连接信息已保存到本机浏览器。"); }
+(function(){ try{ const c = JSON.parse(localStorage.getItem("yq-admin")||"null"); if(c){ $("cfg-repo").value=c.repo||""; $("cfg-branch").value=c.branch||"main"; $("cfg-token").value=c.token||""; } }catch(e){} })();
+
+function log(msg){ const el=$("log"); el.style.display="block"; el.textContent += msg + "\n"; el.scrollTop = el.scrollHeight; }
+
+async function gh(path, opts={}){
+  const c = cfg();
+  const res = await fetch(`${API}/repos/${c.repo}${path}`, Object.assign({
+    headers: { Authorization: `Bearer ${c.token}`, Accept: "application/vnd.github+json" }
+  }, opts));
+  if(!res.ok){ const t = await res.text(); throw new Error(`GitHub ${res.status}: ${t.slice(0,200)}`); }
+  return res.status===204 ? null : res.json();
+}
+
+async function loadFromGitHub(){
+  try{
+    log("→ 正在从 GitHub 读取产品数据…");
+    const c = cfg();
+    const data = await gh("/contents/assets/js/products-data.js?ref="+c.branch);
+    RAW = decodeBase64(data.content);
+    BASE_SHA = data.sha;
+    TREE = parseTree(RAW);
+    PRODUCTS = parseProducts(RAW);
+    pendingImages = {};
+    fillCatSelect(); renderList(); dirty = false;
+    log(`✓ 加载成功：${PRODUCTS.length} 个产品。`);
+  }catch(e){ log("✗ 加载失败：" + e.message); }
+}
+
+function decodeBase64(b64){ return decodeURIComponent(escape(atob(b64.replace(/\n/g,"")))); }
+function parseProducts(raw){
+  const m = raw.match(/PRODUCT-DATA-START \*\/\s*const PRODUCTS = (\[[\s\S]*?\]);\s*\/\* ---------- PRODUCT-DATA-END/);
+  if(!m) throw new Error("数据文件格式不符，找不到 PRODUCT-DATA 标记");
+  return JSON.parse(m[1]);
+}
+function parseTree(raw){
+  const s = raw.indexOf("const CATEGORY_TREE = ");
+  const e = raw.indexOf("/* ---------- PRODUCT-DATA-START");
+  const objText = raw.slice(s + "const CATEGORY_TREE = ".length, e).trim().replace(/;$/,"");
+  return new Function("return (" + objText + ")")();
+}
+
+function fillCatSelect(keepCat, keepSub){
+  $("f-cat").innerHTML = Object.keys(TREE).map(k=>`<option value="${k}">${TREE[k].label}</option>`).join("");
+  if(keepCat) $("f-cat").value = keepCat;
+  fillSubSelect(keepSub);
+  $("f-cat").onchange = () => fillSubSelect();
+}
+function fillSubSelect(keepSub){
+  const cat = $("f-cat").value;
+  const subs = (TREE[cat]&&TREE[cat].subs)||[];
+  $("f-sub").innerHTML = subs.map(s=>`<option value="${s}">${s}</option>`).join("");
+  if(keepSub && subs.includes(keepSub)) $("f-sub").value = keepSub;
+}
+
+function renderList(){
+  $("count").textContent = PRODUCTS.length + " 个";
+  $("list").innerHTML = PRODUCTS.map((p,i)=>`<tr>
+    <td><img src="${previewSrc(p)}" alt=""></td>
+    <td>${esc(p.name)}</td><td>${esc(p.catLabel||"")}</td><td>${esc(p.sub||"")}</td>
+    <td>${p.price?("$"+p.price):"—"}</td>
+    <td class="ops"><button class="btn-ghost" onclick="editRow(${i})">编辑</button><button class="btn-danger" onclick="delRow(${i})">删除</button></td>
+  </tr>`).join("");
+}
+function previewSrc(p){ return pendingImages["assets/images/products/"+p.slug+".jpg"] ? "data:image/jpeg;base64,"+pendingImages["assets/images/products/"+p.slug+".jpg"] : p.img; }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function editRow(i){
+  const p = PRODUCTS[i];
+  $("f-slug").value = p.slug; $("f-name").value = p.name; $("f-price").value = p.price||"";
+  $("f-badge").value = p.badge||""; $("f-desc").value = p.desc||"";
+  fillCatSelect(p.cat, p.sub);
+  $("form-title").textContent = "③ 编辑产品：" + p.name;
+  showPreview();
+  window.scrollTo({top: document.querySelector("#form-title").offsetTop - 80, behavior:"smooth"});
+}
+function delRow(i){
+  if(!confirm("确定删除「"+PRODUCTS[i].name+"」？（点发布后才真正生效）")) return;
+  PRODUCTS.splice(i,1); dirty = true; renderList();
+}
+function resetForm(){
+  ["f-slug","f-name","f-price","f-badge","f-desc"].forEach(id=>$(id).value="");
+  $("f-img").value=""; $("form-title").textContent="③ 添加产品"; $("preview").style.display="none";
+  fillCatSelect();
+}
+function showPreview(){
+  const name=$("f-name").value; if(!name){$("preview").style.display="none";return;}
+  $("preview").style.display="flex"; $("preview-name").textContent=name;
+  const slug=slugOf();
+  if(pendingImages["assets/images/products/"+slug+".jpg"]) $("preview-img").src="data:image/jpeg;base64,"+pendingImages["assets/images/products/"+slug+".jpg"];
+  else { const old=PRODUCTS.find(p=>p.slug===$("f-slug").value); $("preview-img").src=old?old.img:""; }
+}
+function slugOf(){
+  if($("f-slug").value) return $("f-slug").value;
+  return $("f-name").value.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "product-"+Date.now();
+}
+$("f-img").addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ pendingImages["assets/images/products/"+slugOf()+".jpg"]=r.result.split(",")[1]; dirty=true; showPreview(); log("✓ 图片已就绪："+f.name); };
+  r.readAsDataURL(f);
+});
+$("f-name").addEventListener("input", showPreview);
+
+function saveProduct(){
+  const name=$("f-name").value.trim();
+  if(!name){ alert("请填写产品英文名称"); return; }
+  const cat=$("f-cat").value, sub=$("f-sub").value;
+  const item={
+    slug: slugOf(), name,
+    cat, catLabel: TREE[cat]?TREE[cat].label:cat, sub,
+    price: $("f-price").value?Number($("f-price").value):null,
+    img: "assets/images/products/"+slugOf()+".jpg",
+    badge: $("f-badge").value.trim(), desc: $("f-desc").value.trim()
+  };
+  if(!pendingImages[item.img]){ const old=PRODUCTS.find(p=>p.slug===item.slug); if(old) item.img=old.img; }
+  const i=PRODUCTS.findIndex(p=>p.slug===item.slug);
+  if(i>=0){ if(!pendingImages[item.img]) item.img=PRODUCTS[i].img; PRODUCTS[i]=item; } else PRODUCTS.push(item);
+  dirty=true; renderList(); resetForm();
+  log("✓ 「"+name+"」已保存到列表（尚未发布）。");
+}
+
+function buildDataFile(){
+  const json = JSON.stringify(PRODUCTS, null, 2);
+  return RAW.replace(/(PRODUCT-DATA-START \*\/\s*const PRODUCTS = )\[[\s\S]*?\](;\s*\/\* ---------- PRODUCT-DATA-END)/, "$1"+json+"$2");
+}
+
+async function publish(){
+  try{
+    const c=cfg();
+    if(!c.repo||!c.token){ alert("请先填写仓库和 Token，并点「记住连接信息」"); return; }
+    if(!RAW){ log("→ 本地没有加载数据，先尝试从 GitHub 加载…"); await loadFromGitHub(); if(!RAW) throw new Error("无法加载现有数据"); }
+    log("→ 准备提交…");
+    const ref = await gh("/git/refs/heads/"+c.branch);
+    const base = ref.object.sha;
+    const baseCommit = await gh("/git/commits/"+base);
+    const files = [{ path:"assets/js/products-data.js", content: buildDataFile(), encoding:"utf-8" }];
+    for(const [path,b64] of Object.entries(pendingImages)) files.push({path, content:b64, encoding:"base64"});
+    const blobs=[];
+    for(const f of files){ const b=await gh("/git/blobs",{method:"POST",body:JSON.stringify({content:f.content,encoding:f.encoding})}); blobs.push({path:f.path,mode:"100644",type:"blob",sha:b.sha}); log("✓ 已上传 "+f.path); }
+    const tree = await gh("/git/trees",{method:"POST",body:JSON.stringify({base_tree:baseCommit.tree.sha,tree:blobs})});
+    const commit = await gh("/git/commits",{method:"POST",body:JSON.stringify({message:"产品更新 "+new Date().toISOString().slice(0,16).replace("T"," "),tree:tree.sha,parents:[base]})});
+    await gh("/git/refs/heads/"+c.branch,{method:"PATCH",body:JSON.stringify({sha:commit.sha})});
+    pendingImages={}; dirty=false; BASE_SHA=commit.sha; RAW=buildDataFile();
+    log("✓ 提交成功！Cloudflare Pages 将在约 1 分钟内自动部署上线。");
+    alert("发布成功！约 1 分钟后你的网站就会更新。");
+  }catch(e){ log("✗ 发布失败：" + e.message); alert("发布失败，详见日志：" + e.message); }
+}
+</script>
+</body>
+</html>
