@@ -112,10 +112,18 @@ let pendingImages = {}; // path -> base64
 const $ = id => document.getElementById(id);
 const cfg = () => ({ repo: $("cfg-repo").value.trim(), branch: $("cfg-branch").value.trim() || "main", token: $("cfg-token").value.trim() });
 
-function saveCfg(){ localStorage.setItem("yq-admin", JSON.stringify({repo:cfg().repo, branch:cfg().branch, token:cfg().token})); log("连接信息已保存到本机浏览器。"); }
+function saveCfg(){ localStorage.setItem("yq-admin", JSON.stringify({repo:cfg().repo, branch:cfg().branch, token:cfg().token})); log("连接信息已保存到本机浏览器。"); toast("✓ 连接信息已保存"); }
 (function(){ try{ const c = JSON.parse(localStorage.getItem("yq-admin")||"null"); if(c){ $("cfg-repo").value=c.repo||""; $("cfg-branch").value=c.branch||"main"; $("cfg-token").value=c.token||""; } }catch(e){} })();
 
 function log(msg){ const el=$("log"); el.style.display="block"; el.textContent += msg + "\n"; el.scrollTop = el.scrollHeight; }
+function toast(msg){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast";
+    t.style.cssText="position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:#123f45;color:#fff;padding:.7rem 1.6rem;border-radius:999px;font-size:.9rem;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:opacity .4s;max-width:90vw";
+    document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity="1";
+  clearTimeout(t._h); t._h=setTimeout(()=>{t.style.opacity="0";},2800);
+}
 
 async function gh(path, opts={}){
   const c = cfg();
@@ -138,14 +146,16 @@ async function loadFromGitHub(){
     pendingImages = {};
     fillCatSelect(); renderList(); dirty = false;
     log(`✓ 加载成功：${PRODUCTS.length} 个产品。`);
-  }catch(e){ log("✗ 加载失败：" + e.message); }
+    toast(`✓ 加载成功：${PRODUCTS.length} 个产品`);
+  }catch(e){ log("✗ 加载失败：" + e.message); toast("✗ 加载失败：" + e.message); }
 }
 
 function decodeBase64(b64){ return decodeURIComponent(escape(atob(b64.replace(/\n/g,"")))); }
 function parseProducts(raw){
-  const m = raw.match(/PRODUCT-DATA-START \*\/\s*const PRODUCTS = (\[[\s\S]*?\]);\s*\/\* ---------- PRODUCT-DATA-END/);
-  if(!m) throw new Error("数据文件格式不符，找不到 PRODUCT-DATA 标记");
-  return JSON.parse(m[1]);
+  const a = raw.indexOf("const PRODUCTS = ");
+  const b = raw.indexOf("/* ---------- PRODUCT-DATA-END");
+  if(a < 0 || b < 0) throw new Error("数据文件格式不符，找不到 PRODUCT-DATA 标记");
+  return JSON.parse(raw.slice(a + "const PRODUCTS = ".length, b).trim().replace(/;$/,""));
 }
 function parseTree(raw){
   const s = raw.indexOf("const CATEGORY_TREE = ");
@@ -232,11 +242,15 @@ function saveProduct(){
   if(i>=0){ if(!pendingImages[item.img]) item.img=PRODUCTS[i].img; PRODUCTS[i]=item; } else PRODUCTS.push(item);
   dirty=true; renderList(); resetForm();
   log("✓ 「"+name+"」已保存到列表（尚未发布）。");
+  toast("✓ 「"+name+"」已保存到列表");
 }
 
 function buildDataFile(){
   const json = JSON.stringify(PRODUCTS, null, 2);
-  return RAW.replace(/(PRODUCT-DATA-START \*\/\s*const PRODUCTS = )\[[\s\S]*?\](;\s*\/\* ---------- PRODUCT-DATA-END)/, "$1"+json+"$2");
+  const a = RAW.indexOf("const PRODUCTS = ");
+  const b = RAW.indexOf("/* ---------- PRODUCT-DATA-END");
+  if(a < 0 || b < 0) throw new Error("数据文件格式不符，无法写回");
+  return RAW.slice(0, a + "const PRODUCTS = ".length) + json + ";\n" + RAW.slice(b);
 }
 
 async function publish(){
