@@ -90,28 +90,6 @@ const PRODUCTS = [
     "desc": "Single-handle solid brass faucet with PVD brushed gold finish and ceramic cartridge."
   },
   {
-    "slug": "abs",
-    "name": "ABS",
-    "cat": "faucets",
-    "catLabel": "Faucets",
-    "sub": "Basin Faucets",
-    "price": 999,
-    "img": "assets/images/products/abs.jpg",
-    "badge": "",
-    "desc": ""
-  },
-  {
-    "slug": "abs-black",
-    "name": "ABS（BLACK）",
-    "cat": "faucets",
-    "catLabel": "Faucets",
-    "sub": "Basin Faucets",
-    "price": 999,
-    "img": "assets/images/products/abs-black.jpg",
-    "badge": "123",
-    "desc": "asdzxc"
-  },
-  {
     "slug": "aaa",
     "name": "AAA",
     "cat": "faucets",
