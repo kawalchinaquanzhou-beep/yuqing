@@ -41,7 +41,7 @@
 <body>
 <div class="wrap">
   <h1>YUQING 产品管理后台</h1>
-  <p class="sub">在这里增删改产品 → 点「保存并发布」→ 自动提交到 GitHub → Cloudflare 约 1 分钟后自动上线。全程不用碰代码。</p>
+  <p class="sub">在这里增删改产品 → 点「保存并发布」→ 自动提交到 GitHub → Cloudflare 约 1 分钟后自动上线。</p>
 
   <div class="card">
     <h2>① GitHub 连接（首次填写，自动记住）</h2>
@@ -59,7 +59,6 @@
         <input id="cfg-token" type="password" placeholder="github_pat_... 或 ghp_...">
       </div>
     </div>
-    <p class="hint">Token 创建方法：GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token → 仓库选你的站点仓库 → Permissions 里 Contents 设为 Read and write → 生成后粘贴到这里。Token 只保存在你自己浏览器的本地存储里。</p>
     <p style="margin-top:1rem"><button class="btn-main" onclick="loadFromGitHub()">从网站加载当前产品</button>
     <button class="btn-ghost" onclick="saveCfg()">记住连接信息</button></p>
   </div>
@@ -87,6 +86,23 @@
       <div><label>标签（可选，如 New / Featured）</label><input id="f-badge"></div>
       <div><label>产品图片（可选，不选则沿用旧图）</label><input id="f-img" type="file" accept="image/*"></div>
     </div>
+    <label style="margin-top:1rem">规格参数（选填，填了会显示在详情页规格表里）</label>
+    <div class="row">
+      <div><label>Height / Reach（尺寸）</label><input id="f-spec-size" placeholder='e.g. 8.1" H × 5.5" spout reach'></div>
+      <div><label>Material（材质）</label><input id="f-spec-material" placeholder="e.g. ABS / solid brass"></div>
+    </div>
+    <div class="row">
+      <div><label>Cartridge（阀芯）</label><input id="f-spec-cartridge" placeholder="e.g. ceramic disc"></div>
+      <div><label>Aerator（起泡器）</label><input id="f-spec-aerator"></div>
+    </div>
+    <div class="row">
+      <div><label>Fitting（安装方式）</label><input id="f-spec-fitting" placeholder="e.g. single-hole deck mount"></div>
+      <div><label>Other finishes（其他表面处理）</label><input id="f-spec-finishes" placeholder="e.g. matte black, chrome"></div>
+    </div>
+    <div class="row">
+      <div><label>Warranty（质保）</label><input id="f-spec-warranty" placeholder="e.g. 5 years"></div>
+      <div></div>
+    </div>
     <label>英文简介（一两句话）</label>
     <textarea id="f-desc" rows="2"></textarea>
     <div class="preview" id="preview" style="display:none"><img id="preview-img" alt=""><span class="muted" id="preview-name"></span></div>
@@ -110,6 +126,15 @@ let TREE = {}, PRODUCTS = [], RAW = "", BASE_SHA = "", dirty = false;
 let pendingImages = {}; // path -> base64
 
 const $ = id => document.getElementById(id);
+const SPEC_FIELDS = [
+  ["Height / Reach", "f-spec-size"],
+  ["Material", "f-spec-material"],
+  ["Cartridge", "f-spec-cartridge"],
+  ["Aerator", "f-spec-aerator"],
+  ["Fitting", "f-spec-fitting"],
+  ["Other finishes", "f-spec-finishes"],
+  ["Warranty", "f-spec-warranty"]
+];
 const cfg = () => ({ repo: $("cfg-repo").value.trim(), branch: $("cfg-branch").value.trim() || "main", token: $("cfg-token").value.trim() });
 
 function saveCfg(){ localStorage.setItem("yq-admin", JSON.stringify({repo:cfg().repo, branch:cfg().branch, token:cfg().token})); log("连接信息已保存到本机浏览器。"); toast("✓ 连接信息已保存"); }
@@ -194,6 +219,7 @@ function editRow(i){
   const p = PRODUCTS[i];
   $("f-slug").value = p.slug; $("f-name").value = p.name; $("f-price").value = p.price||"";
   $("f-badge").value = p.badge||""; $("f-desc").value = p.desc||"";
+  SPEC_FIELDS.forEach(([label,id])=>{ $(id).value = (p.specs&&p.specs[label])||""; });
   fillCatSelect(p.cat, p.sub);
   $("form-title").textContent = "③ 编辑产品：" + p.name;
   showPreview();
@@ -205,6 +231,7 @@ function delRow(i){
 }
 function resetForm(){
   ["f-slug","f-name","f-price","f-badge","f-desc"].forEach(id=>$(id).value="");
+  SPEC_FIELDS.forEach(([label,id])=>{ $(id).value=""; });
   $("f-img").value=""; $("form-title").textContent="③ 添加产品"; $("preview").style.display="none";
   fillCatSelect();
 }
@@ -231,6 +258,8 @@ function saveProduct(){
   const name=$("f-name").value.trim();
   if(!name){ alert("请填写产品英文名称"); return; }
   const cat=$("f-cat").value, sub=$("f-sub").value;
+  const specs={};
+  SPEC_FIELDS.forEach(([label,id])=>{ const v=$(id).value.trim(); if(v) specs[label]=v; });
   const item={
     slug: slugOf(), name,
     cat, catLabel: TREE[cat]?TREE[cat].label:cat, sub,
@@ -238,6 +267,7 @@ function saveProduct(){
     img: "assets/images/products/"+slugOf()+".jpg",
     badge: $("f-badge").value.trim(), desc: $("f-desc").value.trim()
   };
+  if(Object.keys(specs).length) item.specs=specs;
   if(!pendingImages[item.img]){ const old=PRODUCTS.find(p=>p.slug===item.slug); if(old) item.img=old.img; }
   const i=PRODUCTS.findIndex(p=>p.slug===item.slug);
   if(i>=0){ if(!pendingImages[item.img]) item.img=PRODUCTS[i].img; PRODUCTS[i]=item; } else PRODUCTS.push(item);
@@ -255,7 +285,8 @@ function buildDataFile(){
 }
 
 /* ---------- 详情页模板（发布时自动生成） ---------- */
-const PDP_TEMPLATE = `<!DOCTYPE html>
+const PDP_TEMPLATE = `<!-- generated-by-admin -->
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -303,6 +334,7 @@ const PDP_TEMPLATE = `<!DOCTYPE html>
           @@BADGE@@
           @@PRICE@@
           @@DESC@@
+          @@SPECS@@
           <div class="buy-box">
             <a class="btn btn-primary btn-block" href="https://wa.me/8618359563566?text=Hi!%20I%27d%20like%20to%20get%20a%20quote%20for%20@@NAME_URL@@." target="_blank" rel="noopener">Get a Quote on WhatsApp</a>
             <a class="btn btn-outline btn-block" href="../contact.html">Contact &amp; Social Media</a>
@@ -375,7 +407,10 @@ function buildPdp(p){
     "@@IMG@@": p.img,
     "@@BADGE@@": (p.badge ? '<span class="badge">' + esc(p.badge) + '</span>' : ''),
     "@@PRICE@@": (p.price ? '<p class="pdp-price">$' + p.price + ' <small>USD · Reference price</small></p>' : ''),
-    "@@DESC@@": (p.desc ? '<p class="pdp-desc">' + esc(p.desc) + '</p>' : '')
+    "@@DESC@@": (p.desc ? '<p class="pdp-desc">' + esc(p.desc) + '</p>' : ''),
+    "@@SPECS@@": (p.specs && Object.keys(p.specs).length
+      ? '<table class="spec-table">' + Object.entries(p.specs).map(([k,v]) => '<tr><th>' + esc(k) + '</th><td>' + esc(v) + '</td></tr>').join('') + '</table>'
+      : '')
   };
   let t = PDP_TEMPLATE;
   for(const k in rep) t = t.split(k).join(rep[k]);
@@ -396,7 +431,16 @@ async function publish(){
     // 自动生成详情页：任何还没有详情页的产品，发布时一并生成
     for(const p of PRODUCTS){
       const has = await gh("/contents/product/"+p.slug+".html?ref="+c.branch).catch(()=>null);
-      if(!has){ files.push({path:"product/"+p.slug+".html", content: buildPdp(p), encoding:"utf-8"}); log("✓ 自动生成详情页 product/"+p.slug+".html"); }
+      if(!has){
+        files.push({path:"product/"+p.slug+".html", content: buildPdp(p), encoding:"utf-8"});
+        log("✓ 自动生成详情页 product/"+p.slug+".html");
+      } else {
+        const txt = decodeBase64(has.content || "");
+        if(txt.indexOf("generated-by-admin") >= 0){
+          files.push({path:"product/"+p.slug+".html", content: buildPdp(p), encoding:"utf-8"});
+          log("✓ 同步更新详情页 product/"+p.slug+".html");
+        }
+      }
     }
     // 删除的产品：同步删除其详情页
     const dels=[];
