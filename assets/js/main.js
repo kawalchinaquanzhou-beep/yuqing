@@ -29,6 +29,34 @@ const PAYPAL_LINKS = {
    Loaded from assets/js/products-data.js (managed via admin.html).
    Pages that render the grid must load products-data.js before main.js. */
 
+/* ---------- Grid positioning ----------
+   A product may carry pos:"R-C" (R=row, C=column 1..4 on desktop).
+   Positioned products take their exact slot; the rest fill the
+   remaining slots in list order. */
+function orderProducts(items){
+  const COLS = 4;
+  const ok = (p) => p.pos && /^\d+-\d+$/.test(String(p.pos));
+  const positioned = items.filter(ok);
+  const free = items.filter((p) => !ok(p));
+  if (!positioned.length) return items;
+  const grid = {};
+  positioned.forEach((p) => {
+    const [r, c] = String(p.pos).split("-").map(Number);
+    (grid[r] = grid[r] || {})[c] = p;
+  });
+  const maxR = Math.max(...positioned.map((p) => +String(p.pos).split("-")[0]));
+  const out = [];
+  let fi = 0;
+  for (let r = 1; r <= maxR; r++) {
+    for (let c = 1; c <= COLS; c++) {
+      if (grid[r] && grid[r][c]) out.push(grid[r][c]);
+      else if (fi < free.length) out.push(free[fi++]);
+    }
+  }
+  while (fi < free.length) out.push(free[fi++]);
+  return out;
+}
+
 /* ---------- Nav toggle (mobile) ---------- */
 document.addEventListener("DOMContentLoaded", () => {
   const toggle = document.querySelector(".nav-toggle");
@@ -102,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let items = PRODUCTS;
       if (cat !== "all") items = items.filter((p) => p.cat === cat);
       if (sub !== "all") items = items.filter((p) => p.sub === sub);
-      render(items);
+      render(orderProducts(items));
     };
 
     // Rebuild level-2 options based on level-1 choice

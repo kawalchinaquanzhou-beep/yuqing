@@ -66,7 +66,7 @@
   <div class="card">
     <h2>② 当前产品列表 <span class="pill" id="count"></span></h2>
     <table>
-      <thead><tr><th>图</th><th>名称</th><th>一级分类</th><th>二级分类</th><th>价格</th><th>操作</th></tr></thead>
+      <thead><tr><th>图</th><th>名称</th><th>位置</th><th>一级分类</th><th>二级分类</th><th>价格</th><th>操作</th></tr></thead>
       <tbody id="list"></tbody>
     </table>
   </div>
@@ -85,6 +85,10 @@
     <div class="row">
       <div><label>标签（可选，如 New / Featured）</label><input id="f-badge"></div>
       <div><label>产品图片（可选，不选则沿用旧图）</label><input id="f-img" type="file" accept="image/*"></div>
+    </div>
+    <div class="row">
+      <div><label>展示位置（选填）</label><input id="f-pos" placeholder="如 1-4 = 第 1 排第 4 个；留空按列表顺序自动排"></div>
+      <div></div>
     </div>
     <label style="margin-top:1rem">规格参数（选填，填了会显示在详情页规格表里）</label>
     <div class="row">
@@ -171,6 +175,8 @@ async function loadFromGitHub(){
     pendingImages = {};
     fillCatSelect(); renderList(); dirty = false;
     window.ORIG_SLUGS = PRODUCTS.map(p=>p.slug);
+    window.ORIG_CONTENT = {};
+    PRODUCTS.forEach(p=>{ const o=Object.assign({},p); delete o.pos; window.ORIG_CONTENT[p.slug]=JSON.stringify(o); });
     log(`✓ 加载成功：${PRODUCTS.length} 个产品。`);
     toast(`✓ 加载成功：${PRODUCTS.length} 个产品`);
   }catch(e){ log("✗ 加载失败：" + e.message); toast("✗ 加载失败：" + e.message); }
@@ -207,7 +213,7 @@ function renderList(){
   $("count").textContent = PRODUCTS.length + " 个";
   $("list").innerHTML = PRODUCTS.map((p,i)=>`<tr>
     <td><img src="${previewSrc(p)}" alt=""></td>
-    <td>${esc(p.name)}</td><td>${esc(p.catLabel||"")}</td><td>${esc(p.sub||"")}</td>
+    <td>${esc(p.name)}</td><td>${esc(p.pos||"—")}</td><td>${esc(p.catLabel||"")}</td><td>${esc(p.sub||"")}</td>
     <td>${p.price?("$"+p.price):"—"}</td>
     <td class="ops"><button class="btn-ghost" onclick="editRow(${i})">编辑</button><button class="btn-danger" onclick="delRow(${i})">删除</button></td>
   </tr>`).join("");
@@ -220,6 +226,7 @@ function editRow(i){
   $("f-slug").value = p.slug; $("f-name").value = p.name; $("f-price").value = p.price||"";
   $("f-badge").value = p.badge||""; $("f-desc").value = p.desc||"";
   SPEC_FIELDS.forEach(([label,id])=>{ $(id).value = (p.specs&&p.specs[label])||""; });
+  $("f-pos").value = p.pos||"";
   fillCatSelect(p.cat, p.sub);
   $("form-title").textContent = "③ 编辑产品：" + p.name;
   showPreview();
@@ -230,7 +237,7 @@ function delRow(i){
   PRODUCTS.splice(i,1); dirty = true; renderList();
 }
 function resetForm(){
-  ["f-slug","f-name","f-price","f-badge","f-desc"].forEach(id=>$(id).value="");
+  ["f-slug","f-name","f-price","f-badge","f-desc","f-pos"].forEach(id=>$(id).value="");
   SPEC_FIELDS.forEach(([label,id])=>{ $(id).value=""; });
   $("f-img").value=""; $("form-title").textContent="③ 添加产品"; $("preview").style.display="none";
   fillCatSelect();
@@ -268,6 +275,8 @@ function saveProduct(){
     badge: $("f-badge").value.trim(), desc: $("f-desc").value.trim()
   };
   if(Object.keys(specs).length) item.specs=specs;
+  const posV=$("f-pos").value.trim();
+  if(/^\d+-\d+$/.test(posV)) item.pos=posV;
   if(!pendingImages[item.img]){ const old=PRODUCTS.find(p=>p.slug===item.slug); if(old) item.img=old.img; }
   const i=PRODUCTS.findIndex(p=>p.slug===item.slug);
   if(i>=0){ if(!pendingImages[item.img]) item.img=PRODUCTS[i].img; PRODUCTS[i]=item; } else PRODUCTS.push(item);
@@ -437,8 +446,13 @@ async function publish(){
       } else {
         const txt = decodeBase64(has.content || "");
         if(txt.indexOf("generated-by-admin") >= 0){
-          files.push({path:"product/"+p.slug+".html", content: buildPdp(p), encoding:"utf-8"});
-          log("✓ 同步更新详情页 product/"+p.slug+".html");
+          const cur = Object.assign({}, p); delete cur.pos;
+          if(JSON.stringify(cur) !== (window.ORIG_CONTENT||{})[p.slug]){
+            files.push({path:"product/"+p.slug+".html", content: buildPdp(p), encoding:"utf-8"});
+            log("✓ 同步更新详情页 product/"+p.slug+".html");
+          } else {
+            log("· "+p.slug+" 内容未变，详情页不覆盖");
+          }
         }
       }
     }
