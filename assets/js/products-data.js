@@ -99,6 +99,26 @@ const PRODUCTS = [
     "img": "assets/images/products/aaa.jpg",
     "badge": "123",
     "desc": "ABC"
+  },
+  {
+    "slug": "abs",
+    "name": "ABS",
+    "cat": "faucets",
+    "catLabel": "Faucets",
+    "sub": "Basin Faucets",
+    "price": 999,
+    "img": "assets/images/products/abs.jpg",
+    "badge": "1234565789",
+    "desc": "QWERTYUIOP",
+    "specs": {
+      "Height / Reach": "100*100",
+      "Material": "ABS",
+      "Cartridge": "AAA",
+      "Aerator": "BBB",
+      "Fitting": "CCC",
+      "Other finishes": "DDD",
+      "Warranty": "EEE"
+    }
   }
 ];
 /* ---------- PRODUCT-DATA-END ---------- */
