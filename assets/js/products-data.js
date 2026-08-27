@@ -46,17 +46,6 @@ const PRODUCTS = [
     "desc": "Wall-mounted walnut vanity with ceramic countertop basin and soft-close drawers."
   },
   {
-    "slug": "nord-40-vanity",
-    "name": "Nord 40\" Compact Vanity",
-    "cat": "bathroom-vanities",
-    "catLabel": "Bathroom Vanities",
-    "sub": "PU Paint Vanities",
-    "price": 599,
-    "img": "assets/images/product-vanity.jpg",
-    "badge": "",
-    "desc": "Space-saving design for smaller bathrooms, matte oak finish with white ceramic sink."
-  },
-  {
     "slug": "sfera-smart-toilet",
     "name": "Sfera ONE Smart Toilet",
     "cat": "toilets-accessories",
@@ -66,6 +55,17 @@ const PRODUCTS = [
     "img": "assets/images/product-smart-toilet.jpg",
     "badge": "New",
     "desc": "Tankless bidet toilet with heated seat, warm-water wash, and auto open/close lid."
+  },
+  {
+    "slug": "nord-40-vanity",
+    "name": "Nord 40\" Compact Vanity",
+    "cat": "bathroom-vanities",
+    "catLabel": "Bathroom Vanities",
+    "sub": "PU Paint Vanities",
+    "price": 599,
+    "img": "assets/images/product-vanity.jpg",
+    "badge": "",
+    "desc": "Space-saving design for smaller bathrooms, matte oak finish with white ceramic sink."
   },
   {
     "slug": "rainfall-pro-shower-set",
