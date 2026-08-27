@@ -36,6 +36,9 @@
   .preview { display:flex; gap:1rem; align-items:center; margin-top:.8rem; }
   .preview img { width:84px; height:84px; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
   .muted { color:var(--soft); font-size:.85rem; }
+  .handle { cursor:grab; color:#b9c4c9; font-size:1rem; user-select:none; text-align:center; }
+  .handle:active { cursor:grabbing; }
+  tr.dragging { opacity:.4; background:#eef4f2; }
 </style>
 </head>
 <body>
@@ -65,8 +68,9 @@
 
   <div class="card">
     <h2>② 当前产品列表 <span class="pill" id="count"></span></h2>
+    <p class="hint">长按每行左侧的  手柄上下拖拽，即可调整产品在网站上的展示顺序。</p>
     <table>
-      <thead><tr><th>图</th><th>名称</th><th>位置</th><th>一级分类</th><th>二级分类</th><th>价格</th><th>操作</th></tr></thead>
+      <thead><tr><th></th><th>图</th><th>名称</th><th>一级分类</th><th>二级分类</th><th>价格</th><th>操作</th></tr></thead>
       <tbody id="list"></tbody>
     </table>
   </div>
@@ -85,10 +89,6 @@
     <div class="row">
       <div><label>标签（可选，如 New / Featured）</label><input id="f-badge"></div>
       <div><label>产品图片（可选，不选则沿用旧图）</label><input id="f-img" type="file" accept="image/*"></div>
-    </div>
-    <div class="row">
-      <div><label>展示位置（选填）</label><input id="f-pos" placeholder="如 1-4 = 第 1 排第 4 个；留空按列表顺序自动排"></div>
-      <div></div>
     </div>
     <label style="margin-top:1rem">规格参数（选填，填了会显示在详情页规格表里）</label>
     <div class="row">
@@ -175,6 +175,7 @@ async function loadFromGitHub(){
     pendingImages = {};
     fillCatSelect(); renderList(); dirty = false;
     window.ORIG_SLUGS = PRODUCTS.map(p=>p.slug);
+    PRODUCTS.forEach(p=>{ delete p.pos; });
     window.ORIG_CONTENT = {};
     PRODUCTS.forEach(p=>{ const o=Object.assign({},p); delete o.pos; window.ORIG_CONTENT[p.slug]=JSON.stringify(o); });
     log(`✓ 加载成功：${PRODUCTS.length} 个产品。`);
@@ -211,12 +212,41 @@ function fillSubSelect(keepSub){
 
 function renderList(){
   $("count").textContent = PRODUCTS.length + " 个";
-  $("list").innerHTML = PRODUCTS.map((p,i)=>`<tr>
+  $("list").innerHTML = PRODUCTS.map((p,i)=>`<tr data-i="${i}">
+    <td class="handle" title="长按拖拽排序">⠿</td>
     <td><img src="${previewSrc(p)}" alt=""></td>
-    <td>${esc(p.name)}</td><td>${esc(p.pos||"—")}</td><td>${esc(p.catLabel||"")}</td><td>${esc(p.sub||"")}</td>
+    <td>${esc(p.name)}</td><td>${esc(p.catLabel||"")}</td><td>${esc(p.sub||"")}</td>
     <td>${p.price?("$"+p.price):"—"}</td>
     <td class="ops"><button class="btn-ghost" onclick="editRow(${i})">编辑</button><button class="btn-danger" onclick="delRow(${i})">删除</button></td>
   </tr>`).join("");
+  bindDrag();
+}
+
+/* ---------- 长按拖拽排序 ---------- */
+let dragIdx = null;
+function bindDrag(){
+  const rows = $("list").querySelectorAll("tr");
+  rows.forEach((tr)=>{
+    const i = +tr.dataset.i;
+    const h = tr.querySelector(".handle");
+    h.addEventListener("mousedown", ()=>{ tr.draggable = true; });
+    tr.addEventListener("dragstart", (e)=>{
+      if(!tr.draggable) { e.preventDefault(); return; }
+      dragIdx = i; tr.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      try{ e.dataTransfer.setData("text/plain", String(i)); }catch(err){}
+    });
+    tr.addEventListener("dragend", ()=>{ tr.draggable = false; tr.classList.remove("dragging"); dragIdx = null; });
+    tr.addEventListener("dragover", (e)=>{ if(dragIdx!=null) e.preventDefault(); });
+    tr.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      if(dragIdx==null || dragIdx===i) return;
+      const [m] = PRODUCTS.splice(dragIdx,1);
+      PRODUCTS.splice(i,0,m);
+      dirty = true; renderList();
+      toast("✓ 顺序已调整（点发布后生效）");
+    });
+  });
 }
 function previewSrc(p){ return pendingImages["assets/images/products/"+p.slug+".jpg"] ? "data:image/jpeg;base64,"+pendingImages["assets/images/products/"+p.slug+".jpg"] : p.img; }
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -226,7 +256,6 @@ function editRow(i){
   $("f-slug").value = p.slug; $("f-name").value = p.name; $("f-price").value = p.price||"";
   $("f-badge").value = p.badge||""; $("f-desc").value = p.desc||"";
   SPEC_FIELDS.forEach(([label,id])=>{ $(id).value = (p.specs&&p.specs[label])||""; });
-  $("f-pos").value = p.pos||"";
   fillCatSelect(p.cat, p.sub);
   $("form-title").textContent = "③ 编辑产品：" + p.name;
   showPreview();
@@ -237,7 +266,7 @@ function delRow(i){
   PRODUCTS.splice(i,1); dirty = true; renderList();
 }
 function resetForm(){
-  ["f-slug","f-name","f-price","f-badge","f-desc","f-pos"].forEach(id=>$(id).value="");
+  ["f-slug","f-name","f-price","f-badge","f-desc"].forEach(id=>$(id).value="");
   SPEC_FIELDS.forEach(([label,id])=>{ $(id).value=""; });
   $("f-img").value=""; $("form-title").textContent="③ 添加产品"; $("preview").style.display="none";
   fillCatSelect();
@@ -275,8 +304,6 @@ function saveProduct(){
     badge: $("f-badge").value.trim(), desc: $("f-desc").value.trim()
   };
   if(Object.keys(specs).length) item.specs=specs;
-  const posV=$("f-pos").value.trim();
-  if(/^\d+-\d+$/.test(posV)) item.pos=posV;
   if(!pendingImages[item.img]){ const old=PRODUCTS.find(p=>p.slug===item.slug); if(old) item.img=old.img; }
   const i=PRODUCTS.findIndex(p=>p.slug===item.slug);
   if(i>=0){ if(!pendingImages[item.img]) item.img=PRODUCTS[i].img; PRODUCTS[i]=item; } else PRODUCTS.push(item);
