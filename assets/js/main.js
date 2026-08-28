@@ -57,6 +57,22 @@ function orderProducts(items){
   return out;
 }
 
+/* ---------- Shared product card markup ---------- */
+function productCard(p){
+  return `
+        <article class="prod-card">
+          <a class="thumb" href="product/${p.slug}.html">
+            <img src="${p.img}" alt="${p.name}" loading="lazy">
+          </a>
+          <div class="body">
+            <span class="cat">${p.catLabel}${p.sub ? " · " + p.sub : ""}</span>
+            <h3><a href="product/${p.slug}.html">${p.name}</a></h3>
+            <p style="font-size:.9rem;color:var(--ink-soft)">${p.desc || ""}</p>
+            <span class="price">${p.price ? "$" + p.price.toLocaleString() : ""}</span>
+          </div>
+        </article>`;
+}
+
 /* ---------- Nav toggle (mobile) ---------- */
 document.addEventListener("DOMContentLoaded", () => {
   const toggle = document.querySelector(".nav-toggle");
@@ -106,22 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
         grid.innerHTML = `<p class="empty-state" style="grid-column:1/-1;text-align:center;color:var(--ink-soft);padding:3rem 0">No products in this category yet — <a href="contact.html">send us an inquiry</a> and we'll source it for you.</p>`;
         return;
       }
-      grid.innerHTML = items
-        .map(
-          (p) => `
-        <article class="prod-card">
-          <a class="thumb" href="product/${p.slug}.html">
-            <img src="${p.img}" alt="${p.name}" loading="lazy">
-          </a>
-          <div class="body">
-            <span class="cat">${p.catLabel}${p.sub ? " · " + p.sub : ""}</span>
-            <h3><a href="product/${p.slug}.html">${p.name}</a></h3>
-            <p style="font-size:.9rem;color:var(--ink-soft)">${p.desc}</p>
-            <span class="price">$${p.price.toLocaleString()}</span>
-          </div>
-        </article>`
-        )
-        .join("");
+      grid.innerHTML = items.map(productCard).join("");
     };
 
     const apply = () => {
@@ -177,6 +178,12 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       render(PRODUCTS);
     }
+  }
+
+  // Homepage featured grid (first four products, always current)
+  const fgrid = document.getElementById("featured-grid");
+  if (fgrid && typeof PRODUCTS !== "undefined") {
+    fgrid.innerHTML = PRODUCTS.slice(0, 4).map(productCard).join("");
   }
 
   // Auto year in footer
