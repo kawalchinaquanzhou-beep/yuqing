@@ -118,7 +118,7 @@
 
   <div class="card">
     <h2>④ 更新工厂宣传片</h2>
-    <p class="muted">选择新宣传片，点「保存并发布」随产品一起上线。要求：MP4 且为 H.264 编码、24MB 以内。若视频是 H.265 编码或大于 24MB，页面会提示——那种情况把视频发给我处理（转码/外部托管）。</p>
+    <p class="muted">选择新宣传片，点「保存并发布」随产品一起上线。要求：MP4 且为 H.264 编码、24MB 以内。</p>
     <input id="f-video" type="file" accept="video/mp4,video/*">
     <p id="video-status" class="hint"></p>
   </div>
@@ -471,7 +471,7 @@ let pendingVideo = null;
     if(!f) return;
     if(f.size > 24*1024*1024){
       pendingVideo = null;
-      st.textContent = "✗ 视频 " + (f.size/1048576).toFixed(1) + "MB，超过 24MB 上限。请把视频发给我处理（外部托管）。";
+      st.textContent = "✗ 视频 " + (f.size/1048576).toFixed(1) + "MB，超过 24MB 上限。请选择更小的视频文件。";
       toast("✗ 视频太大，无法直接发布");
       return;
     }
@@ -479,7 +479,7 @@ let pendingVideo = null;
     const s = new TextDecoder("iso-8859-1").decode(buf);
     if(s.includes("hvc1") || s.includes("hev1")){
       pendingVideo = null;
-      st.textContent = "✗ 视频是 H.265 编码，浏览器无法播放。请把视频发给我转码后再上传。";
+      st.textContent = "✗ 视频是 H.265 编码，浏览器无法播放。请选择 H.264 编码的 MP4 视频。";
       toast("✗ H.265 编码不支持");
       return;
     }
