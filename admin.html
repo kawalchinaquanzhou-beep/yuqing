@@ -117,7 +117,14 @@
   </div>
 
   <div class="card">
-    <h2>④ 发布上线</h2>
+    <h2>④ 更新工厂宣传片</h2>
+    <p class="muted">选择新宣传片，点「保存并发布」随产品一起上线。要求：MP4 且为 H.264 编码、24MB 以内。若视频是 H.265 编码或大于 24MB，页面会提示——那种情况把视频发给我处理（转码/外部托管）。</p>
+    <input id="f-video" type="file" accept="video/mp4,video/*">
+    <p id="video-status" class="hint"></p>
+  </div>
+
+  <div class="card">
+    <h2>⑤ 发布上线</h2>
     <p class="muted">「保存并发布」会把修改后的产品数据（以及新上传的图片）一次性提交到 GitHub，Cloudflare Pages 检测到提交后约 1 分钟自动重新部署，你的域名随即更新。提交前可以随时在列表里继续编辑。</p>
     <p style="margin-top:1rem"><button class="btn-main" onclick="publish()">保存并发布 🚀</button></p>
     <div id="log"></div>
@@ -453,6 +460,39 @@ function buildPdp(p){
   return t;
 }
 
+/* ---------- 工厂宣传片更新 ---------- */
+let pendingVideo = null;
+(function(){
+  const inp = $("f-video");
+  if(!inp) return;
+  inp.addEventListener("change", async (e)=>{
+    const f = e.target.files[0];
+    const st = $("video-status");
+    if(!f) return;
+    if(f.size > 24*1024*1024){
+      pendingVideo = null;
+      st.textContent = "✗ 视频 " + (f.size/1048576).toFixed(1) + "MB，超过 24MB 上限。请把视频发给我处理（外部托管）。";
+      toast("✗ 视频太大，无法直接发布");
+      return;
+    }
+    const buf = await f.arrayBuffer();
+    const s = new TextDecoder("iso-8859-1").decode(buf);
+    if(s.includes("hvc1") || s.includes("hev1")){
+      pendingVideo = null;
+      st.textContent = "✗ 视频是 H.265 编码，浏览器无法播放。请把视频发给我转码后再上传。";
+      toast("✗ H.265 编码不支持");
+      return;
+    }
+    const u8 = new Uint8Array(buf);
+    let bin = "";
+    const CH = 0x8000;
+    for(let i=0;i<u8.length;i+=CH){ bin += String.fromCharCode.apply(null, u8.subarray(i,i+CH)); }
+    pendingVideo = { b64: btoa(bin), name: f.name };
+    st.textContent = "✓ 已选择 " + f.name + "（" + (f.size/1048576).toFixed(1) + "MB），点「保存并发布」随本次一起上线";
+    toast("✓ 视频已就绪");
+  });
+})();
+
 async function publish(){
   try{
     const c=cfg();
@@ -464,6 +504,14 @@ async function publish(){
     const baseCommit = await gh("/git/commits/"+base);
     const files = [{ path:"assets/js/products-data.js", content: buildDataFile(), encoding:"utf-8" }];
     for(const [path,b64] of Object.entries(pendingImages)) files.push({path, content:b64, encoding:"base64"});
+    if(pendingVideo){
+      const fdata = await gh("/contents/factory.html?ref="+c.branch);
+      let html = decodeBase64(fdata.content);
+      html = html.replace(/(<source src=")[^"]+(" type="video\/mp4">)/, "$1assets/video/factory-film.mp4$2");
+      files.push({path:"factory.html", content: html, encoding:"utf-8"});
+      files.push({path:"assets/video/factory-film.mp4", content: pendingVideo.b64, encoding:"base64"});
+      log("✓ 工厂宣传片已加入本次发布");
+    }
     // 自动生成详情页：任何还没有详情页的产品，发布时一并生成
     for(const p of PRODUCTS){
       const has = await gh("/contents/product/"+p.slug+".html?ref="+c.branch).catch(()=>null);
@@ -496,6 +544,7 @@ async function publish(){
     const commit = await gh("/git/commits",{method:"POST",body:JSON.stringify({message:"产品更新 "+new Date().toISOString().slice(0,16).replace("T"," "),tree:tree.sha,parents:[base]})});
     await gh("/git/refs/heads/"+c.branch,{method:"PATCH",body:JSON.stringify({sha:commit.sha})});
     pendingImages={}; dirty=false; BASE_SHA=commit.sha; RAW=buildDataFile();
+    if(pendingVideo){ pendingVideo=null; const vi=$("f-video"); if(vi) vi.value=""; const vs=$("video-status"); if(vs) vs.textContent="✓ 宣传片已随本次发布上线"; }
     log("✓ 提交成功！Cloudflare Pages 将在约 1 分钟内自动部署上线。");
     alert("发布成功！约 1 分钟后你的网站就会更新。");
   }catch(e){ log("✗ 发布失败：" + e.message); alert("发布失败，详见日志：" + e.message); }
