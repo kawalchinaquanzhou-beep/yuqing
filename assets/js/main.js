@@ -9,10 +9,10 @@
    ============================================================ */
 
 const SITE_CONFIG = {
-  WHATSAPP_NUMBER: "8618359563566",           // real number +86 183 5956 3566
-  SUPPORT_EMAIL: "kawalchinaquanzhou@gmail.com",
-  PHONE_DISPLAY: "+86 183 5956 3566",
-  PHONE_TEL: "+8618359563566",
+  WHATSAPP_NUMBER: "16465234734",             // +1 (646) 523-4734
+  SUPPORT_EMAIL: "yuqingquanzhou@gmail.com",
+  PHONE_DISPLAY: "+1 (646) 523-4734",
+  PHONE_TEL: "+16465234734",
 };
 
 const PAYMENT_LINKS = {
